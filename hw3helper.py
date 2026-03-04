@@ -1,0 +1,117 @@
+import warnings
+
+import numpy as np
+from sklearn.metrics import mean_squared_error
+from statsmodels.tsa.arima.model import ARIMA, ARIMAResultsWrapper
+
+warnings.filterwarnings("ignore")
+
+
+def evaluate_arima_model(
+    X: np.ndarray, train_ratio: float, arima_order: tuple, trend: str | list[int]
+) -> float:
+
+    # split into train and test sets
+    train_size = int(len(X) * train_ratio)
+    train = X[0:train_size]
+    test = X[train_size:]
+
+    # fit model
+    model = ARIMA(train, order=arima_order, trend=trend)
+    model_fit = model.fit()
+    predictions = model_fit.forecast(len(test))
+
+    # calculate out of sample error
+    rmse = np.sqrt(mean_squared_error(test, predictions))
+    return rmse
+
+
+def evaluate_arima_models(
+    dataset: np.ndarray,
+    train_ratio: float,
+    p_values: list[int],
+    d_values: list[int],
+    q_values: list[int],
+    trend_values: list[str | list[int]],
+) -> tuple[tuple[int, int, int] | None, str | list[int] | None]:
+    result = []
+    best_rmse, best_cfg, best_trend = float("inf"), None, None
+    for p in p_values:
+        for d in d_values:
+            for q in q_values:
+                for trend in trend_values:
+                    try:
+                        order = (p, d, q)
+                        rmse: float = evaluate_arima_model(
+                            dataset, train_ratio, order, trend
+                        )
+                        result.append((order, rmse))
+                        if rmse < best_rmse:
+                            best_rmse = rmse
+                            best_cfg = order
+                            best_trend = trend
+                    except Exception:
+                        continue
+
+    return best_cfg, best_trend
+
+
+class find_best_model_response:
+    def __init__(
+        self,
+        model: ARIMAResultsWrapper,
+        rmse: float,
+        p: int,
+        d: int,
+        q: int,
+        trend: str | list[int],
+    ):
+        self.trend = trend
+        self.model = model
+        self.rmse = rmse
+        self.p = p
+        self.d = d
+        self.q = q
+
+    def __str__(self) -> str:
+        return f"ARIMA({self.p}, {self.d}, {self.q}) with trend {self.trend} has RMSE: {self.rmse}"
+
+
+def find_best_model(
+    train_data: np.ndarray,
+    test_data: np.ndarray,
+    p_values: list[int],
+    d_values: list[int],
+    q_values: list[int],
+    trend_values: list[str | list[int]],
+) -> find_best_model_response:
+    res = None
+
+    for p in p_values:
+        for d in d_values:
+            for q in q_values:
+                for trend in trend_values:
+                    try:
+                        # build model
+                        order = (p, d, q)
+                        model = ARIMA(train_data, order=order, trend=trend)
+                        # fit model
+                        model_fit = model.fit()
+                        predictions = model_fit.forecast(len(test_data))
+                        # evaluate forecasts
+                        rmse = np.sqrt(mean_squared_error(test_data, predictions))
+                        if res is None or rmse < res.rmse:
+                            res = find_best_model_response(
+                                model=model_fit,
+                                rmse=rmse,
+                                p=p,
+                                d=d,
+                                q=q,
+                                trend=trend,
+                            )
+                    except Exception:
+                        continue
+    if res is None:
+        raise ValueError("No valid ARIMA model found")
+
+    return res
