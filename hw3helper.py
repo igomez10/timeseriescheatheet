@@ -57,7 +57,7 @@ def evaluate_arima_models(
     return best_cfg, best_trend
 
 
-class find_best_arima_model_response:
+class find_best_arima_response:
     def __init__(
         self,
         model: ARIMAResultsWrapper,
@@ -85,14 +85,14 @@ class find_best_arima_model_response:
         return model.fit()
 
 
-def find_best_arima_model(
+def find_best_arima(
     x_train: np.ndarray,
     x_test: np.ndarray,
     p_values: list[int],
     d_values: list[int],
     q_values: list[int],
     trend_values: list[str | list[int]],
-) -> find_best_arima_model_response:
+) -> find_best_arima_response:
     res = None
 
     for p in p_values:
@@ -109,7 +109,7 @@ def find_best_arima_model(
                         # evaluate forecasts
                         rmse = np.sqrt(mean_squared_error(x_test, predictions))
                         if res is None or rmse < res.rmse:
-                            res = find_best_arima_model_response(
+                            res = find_best_arima_response(
                                 model=model_fit,
                                 rmse=rmse,
                                 p=p,
@@ -125,7 +125,7 @@ def find_best_arima_model(
     return res
 
 
-class find_best_sarima_model_response:
+class find_best_sarima_response:
     def __init__(
         self,
         model: ARIMAResultsWrapper,
@@ -173,7 +173,7 @@ class find_best_sarima_model_response:
         return model.fit()
 
 
-def find_best_sarima_model(
+def find_best_sarima(
     x_train: np.ndarray,
     x_test: np.ndarray,
     p_values: list[int],
@@ -184,7 +184,7 @@ def find_best_sarima_model(
     Q_values: list[int],
     seasonal_period: int,
     trend_values: list[str | list[int]],
-) -> find_best_sarima_model_response:
+) -> find_best_sarima_response:
 
     res = None
     for p in p_values:
@@ -212,7 +212,7 @@ def find_best_sarima_model(
                                         mean_squared_error(x_test, predictions)
                                     )
                                     if res is None or rmse < res.rmse:
-                                        res = find_best_sarima_model_response(
+                                        res = find_best_sarima_response(
                                             model=model_fit,
                                             rmse=rmse,
                                             p=p,
