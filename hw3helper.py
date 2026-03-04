@@ -56,7 +56,7 @@ def evaluate_arima_models(
     return best_cfg, best_trend
 
 
-class find_best_model_response:
+class find_best_arima_model_response:
     def __init__(
         self,
         model: ARIMAResultsWrapper,
@@ -76,15 +76,22 @@ class find_best_model_response:
     def __str__(self) -> str:
         return f"ARIMA({self.p}, {self.d}, {self.q}) with trend {self.trend} has RMSE: {self.rmse}"
 
+    def train_model(self, train_data: np.ndarray) -> ARIMAResultsWrapper:
+        """
+        Train a new ARIMA model using the p, d, q and trend from the best model found.
+        """
+        model = ARIMA(train_data, order=(self.p, self.d, self.q), trend=self.trend)
+        return model.fit()
 
-def find_best_model(
-    train_data: np.ndarray,
-    test_data: np.ndarray,
+
+def find_best_arima_model(
+    x_train: np.ndarray,
+    x_test: np.ndarray,
     p_values: list[int],
     d_values: list[int],
     q_values: list[int],
     trend_values: list[str | list[int]],
-) -> find_best_model_response:
+) -> find_best_arima_model_response:
     res = None
 
     for p in p_values:
@@ -94,14 +101,14 @@ def find_best_model(
                     try:
                         # build model
                         order = (p, d, q)
-                        model = ARIMA(train_data, order=order, trend=trend)
+                        model = ARIMA(x_train, order=order, trend=trend)
                         # fit model
                         model_fit = model.fit()
-                        predictions = model_fit.forecast(len(test_data))
+                        predictions = model_fit.forecast(len(x_test))
                         # evaluate forecasts
-                        rmse = np.sqrt(mean_squared_error(test_data, predictions))
+                        rmse = np.sqrt(mean_squared_error(x_test, predictions))
                         if res is None or rmse < res.rmse:
-                            res = find_best_model_response(
+                            res = find_best_arima_model_response(
                                 model=model_fit,
                                 rmse=rmse,
                                 p=p,
