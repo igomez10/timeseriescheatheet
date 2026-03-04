@@ -3,6 +3,7 @@ import warnings
 import numpy as np
 from sklearn.metrics import mean_squared_error
 from statsmodels.tsa.arima.model import ARIMA, ARIMAResultsWrapper
+from statsmodels.tsa.statespace.sarimax import SARIMAX
 
 warnings.filterwarnings("ignore")
 
@@ -120,5 +121,115 @@ def find_best_arima_model(
                         continue
     if res is None:
         raise ValueError("No valid ARIMA model found")
+
+    return res
+
+
+class find_best_sarima_model_response:
+    def __init__(
+        self,
+        model: ARIMAResultsWrapper,
+        rmse: float,
+        p: int,
+        d: int,
+        q: int,
+        seasonal_P: int,
+        seasonal_D: int,
+        seasonal_Q: int,
+        seasonal_period: int,
+        trend: str | list[int],
+    ):
+        self.trend = trend
+        self.model = model
+        self.rmse = rmse
+        self.p = p
+        self.d = d
+        self.q = q
+        self.seasonal_P = seasonal_P
+        self.seasonal_D = seasonal_D
+        self.seasonal_Q = seasonal_Q
+        self.seasonal_period = seasonal_period
+
+    def __str__(self) -> str:
+        return f"SARIMA({self.p}, {self.d}, {self.q}) x ({self.seasonal_P}, {self.seasonal_D}, {self.seasonal_Q}, {self.seasonal_period}) with trend {self.trend} has RMSE: {self.rmse}"
+
+    def train_model(
+        self, train_data: np.ndarray, seasonal_period: int
+    ) -> ARIMAResultsWrapper:
+        """
+        Train a new SARIMA model using the p, d, q and trend from the best model found.
+        """
+        model = SARIMAX(
+            train_data,
+            order=(self.p, self.d, self.q),
+            seasonal_order=(
+                self.seasonal_P,
+                self.seasonal_D,
+                self.seasonal_Q,
+                seasonal_period,
+            ),
+            trend=self.trend,
+        )
+        return model.fit()
+
+
+def find_best_sarima_model(
+    x_train: np.ndarray,
+    x_test: np.ndarray,
+    p_values: list[int],
+    d_values: list[int],
+    q_values: list[int],
+    P_values: list[int],
+    D_values: list[int],
+    Q_values: list[int],
+    seasonal_period: int,
+    trend_values: list[str | list[int]],
+) -> find_best_sarima_model_response:
+
+    res = None
+    for p in p_values:
+        for d in d_values:
+            for q in q_values:
+                for P in P_values:
+                    for D in D_values:
+                        for Q in Q_values:
+                            for trend in trend_values:
+                                try:
+                                    # build model
+                                    order = (p, d, q)
+                                    seasonal_order = (P, D, Q, seasonal_period)
+                                    model = SARIMAX(
+                                        x_train,
+                                        order=order,
+                                        seasonal_order=seasonal_order,
+                                        trend=trend,
+                                    )
+                                    # fit model
+                                    model_fit = model.fit()
+                                    predictions = model_fit.forecast(len(x_test))
+                                    # evaluate forecasts
+                                    rmse = np.sqrt(
+                                        mean_squared_error(x_test, predictions)
+                                    )
+                                    if res is None or rmse < res.rmse:
+                                        res = find_best_sarima_model_response(
+                                            model=model_fit,
+                                            rmse=rmse,
+                                            p=p,
+                                            d=d,
+                                            q=q,
+                                            seasonal_P=P,
+                                            seasonal_D=D,
+                                            seasonal_Q=Q,
+                                            seasonal_period=seasonal_period,
+                                            trend=trend,
+                                        )
+                                except Exception as e:
+                                    print(
+                                        f"Error fitting SARIMA({p}, {d}, {q}) x ({P}, {D}, {Q}, {seasonal_period}) with trend {trend}: {e}"
+                                    )
+                                    continue
+    if res is None:
+        raise ValueError("No valid SARIMA model found")
 
     return res
